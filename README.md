@@ -61,7 +61,7 @@ In strict physical simulations, pressing a jump key 1 frame before landing or 1 
 
 ## Video Showcase
 
-- **Video Folder Link:** `https://drive.google.com/drive/folders/1RtQXvaG_EdV7HNikOdZDjYsWHAcSOooQ?usp=drive_link`
+- **Video Folder Link:** https://drive.google.com/drive/folders/1RtQXvaG_EdV7HNikOdZDjYsWHAcSOooQ?usp=drive_link
 - **Showcase Highlights:**
   - Mouse-orbit camera with **ESC** toggle cursor locking.
   - Camera-relative WASD movement in action.
