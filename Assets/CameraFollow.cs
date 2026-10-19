@@ -13,7 +13,7 @@ public class CameraFollow : MonoBehaviour
     [SerializeField] private float maxYAngle = 60f;
 
     [Header("Smoothing (Sharpness)")]
-    [SerializeField] private float sharpness = 5f; // Exponential smoothing sharpness[cite: 4]
+    [SerializeField] private float sharpness = 5f; // Exponential smoothing[cite: 4]
 
     private float yaw = 0f;
     private float pitch = 20f;
@@ -21,7 +21,6 @@ public class CameraFollow : MonoBehaviour
 
     void Start()
     {
-        // Automatically find the player if target isn't assigned in inspector
         if (target == null)
         {
             PlayerController player = FindAnyObjectByType<PlayerController>();
@@ -33,13 +32,12 @@ public class CameraFollow : MonoBehaviour
             targetRb = target.GetComponent<Rigidbody>();
         }
 
-        // Lock the cursor to the screen on start (like standard browser/PC games)
         LockCursor();
     }
 
     void Update()
     {
-        // Toggle cursor lock state when pressing ESC
+        // Toggle cursor lock with ESC
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             if (Cursor.lockState == CursorLockMode.Locked)
@@ -52,7 +50,6 @@ public class CameraFollow : MonoBehaviour
             }
         }
 
-        // Only rotate camera with mouse if the cursor is locked
         if (Cursor.lockState == CursorLockMode.Locked)
         {
             yaw += Input.GetAxis("Mouse X") * mouseSensitivity;
@@ -61,11 +58,10 @@ public class CameraFollow : MonoBehaviour
         }
     }
 
-    void LateUpdate() // Must run in LateUpdate as required for Part C[cite: 4]
+    void LateUpdate() // Must run in LateUpdate[cite: 4]
     {
         if (target == null) return;
 
-        // Calculate rotation and desired orbit position around the player
         Quaternion rotation = Quaternion.Euler(pitch, yaw, 0);
         Vector3 targetPosition = target.position + Vector3.up * height;
         Vector3 desiredPosition = targetPosition - (rotation * Vector3.forward * distance);
@@ -74,7 +70,6 @@ public class CameraFollow : MonoBehaviour
         float blend = 1f - Mathf.Exp(-sharpness * Time.deltaTime);
         transform.position = Vector3.Lerp(transform.position, desiredPosition, blend);
 
-        // Keep the camera looking at the player
         transform.LookAt(targetPosition);
     }
 

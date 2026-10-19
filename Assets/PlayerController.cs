@@ -6,7 +6,7 @@ public class PlayerController : MonoBehaviour
 {
     [Header("Movement Settings")]
     [SerializeField] private float speed = 5f;
-    [SerializeField] private float jumpHeight = 1.8f;
+    [SerializeField] private float jumpHeight = 1.8f; // metres
 
     [Header("Fairness Windows")]
     [SerializeField] private float coyoteTime = 0.1f;
@@ -17,16 +17,17 @@ public class PlayerController : MonoBehaviour
 
     [Header("Ground Check & Juice")]
     [SerializeField] private Transform feet;
-    [SerializeField] private float checkRadius = 0.3f;
+    [SerializeField] private float checkRadius = 0.35f;
     [SerializeField] private LayerMask groundMask;
-    [SerializeField] private Transform bodyMesh; // Drag your child "Body" object here
+    [SerializeField] private Transform bodyMesh;
+
+    [Header("Camera Reference")]
+    [SerializeField] private Camera mainCamera; // Explicitly assign your camera here if needed
 
     private Rigidbody rb;
     private Vector3 moveInput;
     private bool isGrounded;
-    private Camera cam;
 
-    // Timestamps for fairness windows
     private float lastGroundedTime;
     private float lastPressedTime;
     private float airborneTimer;
@@ -35,39 +36,58 @@ public class PlayerController : MonoBehaviour
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
-        cam = Camera.main;
+        
+        // Find main camera if not explicitly assigned in inspector
+        if (mainCamera == null)
+        {
+            mainCamera = Camera.main;
+            if (mainCamera == null)
+            {
+                mainCamera = FindAnyObjectByType<Camera>();
+            }
+        }
     }
 
     void Update()
     {
-        // 1. Camera-relative movement input
-        float moveX = Input.GetAxis("Horizontal");
-        float moveZ = Input.GetAxis("Vertical");
+        // Fallback check in case camera was instantiated later
+        if (mainCamera == null) mainCamera = Camera.main;
 
-        if (cam != null)
+        float moveX = Input.GetAxisRaw("Horizontal");
+        float moveZ = Input.GetAxisRaw("Vertical");
+
+        // 1. Calculate camera-relative movement directions
+        if (mainCamera != null)
         {
-            Vector3 camForward = cam.transform.forward;
-            Vector3 camRight = cam.transform.right;
+            // Get camera forward and right directions
+            Vector3 camForward = mainCamera.transform.forward;
+            Vector3 camRight = mainCamera.transform.right;
+
+            // Zero out vertical component so tilting camera doesn't slow movement or push into ground
             camForward.y = 0f;
             camRight.y = 0f;
+
+            // Normalize to keep movement speed consistent regardless of camera angle
             camForward.Normalize();
             camRight.Normalize();
+
+            // Project horizontal & vertical inputs onto camera's orientation
             moveInput = (camForward * moveZ + camRight * moveX);
             if (moveInput.sqrMagnitude > 1f) moveInput.Normalize();
         }
         else
         {
-            moveInput = new Vector3(moveX, 0f, moveZ);
-            if (moveInput.sqrMagnitude > 1f) moveInput.Normalize();
+            // Fallback to absolute world coordinates if camera is missing
+            moveInput = new Vector3(moveX, 0f, moveZ).normalized;
         }
 
-        // 2. Track jump press for the Jump Buffer window
+        // 2. Track jump input press for buffering
         if (Input.GetKeyDown(KeyCode.Space))
         {
             lastPressedTime = Time.time;
         }
 
-        // Track airborne time for juice condition
+        // Track airborne timer for squash/stretch juice
         if (!isGrounded) airborneTimer += Time.deltaTime;
         else airborneTimer = 0f;
     }
@@ -77,12 +97,11 @@ public class PlayerController : MonoBehaviour
         // Ground check
         bool groundedThisFrame = Physics.CheckSphere(feet.position, checkRadius, groundMask);
 
-        // Track coyote time
         if (groundedThisFrame)
         {
             lastGroundedTime = Time.time;
             
-            // Trigger juice on real landing (if airborne for more than 0.1s)
+            // Trigger landing juice if airborne > 0.1s
             if (!wasGroundedLastFrame && airborneTimer > 0.1f)
             {
                 StartCoroutine(LandSquash());
@@ -91,38 +110,37 @@ public class PlayerController : MonoBehaviour
         isGrounded = groundedThisFrame;
         wasGroundedLastFrame = isGrounded;
 
-        // Apply horizontal movement, keeping vertical velocity
-        Vector3 targetVelocity = new Vector3(moveInput.x * speed, rb.linearVelocity.y, moveInput.z * speed);
-        rb.linearVelocity = targetVelocity;
+        // Apply camera-relative velocity while keeping vertical velocity intact
+        Vector3 currentVel = rb.linearVelocity;
+        Vector3 targetVelocity = moveInput * speed;
+        rb.linearVelocity = new Vector3(targetVelocity.x, currentVel.y, targetVelocity.z);
 
-        // Check if both Coyote Time and Jump Buffer conditions are met
+        // Check Coyote Time and Jump Buffer conditions
         bool canJump = (Time.time - lastGroundedTime) <= coyoteTime;
         bool wantJump = (Time.time - lastPressedTime) <= jumpBuffer;
 
         if (canJump && wantJump)
         {
             float g = Mathf.Abs(Physics.gravity.y);
-            float v0 = Mathf.Sqrt(2f * g * jumpHeight);
+            float v0 = Mathf.Sqrt(2f * g * jumpHeight); // v0 = sqrt(2gh)
 
             Vector3 vel = rb.linearVelocity;
-            vel.y = 0f; // Clear downward velocity before jumping
+            vel.y = 0f; // Reset downward velocity before applying impulse
             rb.linearVelocity = vel;
 
             rb.AddForce(Vector3.up * rb.mass * v0, ForceMode.Impulse);
 
-            // Reset windows so it doesn't double-jump
             lastGroundedTime = -1f;
             lastPressedTime = -1f;
         }
 
-        // Apply extra fall gravity for a snappier descent
+        // Apply fall gravity multiplier for a tight, snappy descent
         if (rb.linearVelocity.y < 0f)
         {
             rb.AddForce(Physics.gravity * (fallMultiplier - 1f), ForceMode.Acceleration);
         }
     }
 
-    // Simple landing squash coroutine (Game Juice)
     private IEnumerator LandSquash()
     {
         if (bodyMesh == null) yield break;
@@ -134,11 +152,9 @@ public class PlayerController : MonoBehaviour
         {
             elapsed += Time.deltaTime;
             float p = elapsed / duration;
-            
-            // Quick squash effect: flatten Y, widen X/Z slightly
             float squashY = Mathf.Lerp(1.2f, 1f, p);
             float scaleXZ = 1f / Mathf.Sqrt(squashY);
-            
+
             bodyMesh.localScale = new Vector3(scaleXZ, squashY, scaleXZ);
             yield return null;
         }
