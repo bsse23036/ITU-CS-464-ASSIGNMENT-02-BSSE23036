@@ -191,7 +191,7 @@ CapsuleCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6282434869674996348}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: bd3566a28b000e54ca2b0a8372afbe2f, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -230,3 +230,4 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 256
   bodyMesh: {fileID: 2195971931893927731}
+  mainCamera: {fileID: 0}
